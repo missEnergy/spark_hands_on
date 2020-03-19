@@ -344,7 +344,7 @@ rows.foreach( row => {
 // COMMAND ----------
 
 // MAGIC %md
-// MAGIC ##![Spark Logo Tiny](https://files.training.databricks.com/images/105/logo_spark_tiny.png) withColumnRenamed(..), withColumn(..)
+// MAGIC ## withColumnRenamed(..), withColumn(..)
 // MAGIC 
 // MAGIC How can we add columns and convert the data to the formats we want?
 // MAGIC In order to do so, a lot of useful methods are already predefined in the following package!
@@ -425,7 +425,17 @@ display(
 // save the dataframes to tables with name "<>_processed"
 
 // COMMAND ----------
+//
+//// Exercise: the display functionality has a build-in plotting tool
+//// Using all the transformations you just learned, what can you show with these datasets ?
+//// Try it out!
 
-// Exercise: the display functionality has an amazing plotting tool
-// Using all the transformations you just learned, what can you show with these datasets ?
-// We can also come back to this later...
+// COMMAND ----------
+
+// Exercise: org.apache.spark.sql.functions._
+// There are so many predefined functions available, it's super helpful!
+// Scala docs: https://spark.apache.org/docs/2.3.0/api/scala/index.html#org.apache.spark.sql.functions$
+// More readable: https://spark.apache.org/docs/2.3.0/api/sql/index.html
+// Try it out!
+// Can you convert the utc_datetime in dd/mm/yyyy format?
+// Can you convert the utc_datetime to integer timestamp format?

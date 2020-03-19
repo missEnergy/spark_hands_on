@@ -120,8 +120,6 @@ val actual = transform(dummyDs).collect()
 assert(actual === expected)
 ...
 
-// BTW, Nice package https://github.com/holdenk/spark-testing-base/wiki/DatasetSuiteBase
-
 // COMMAND ----------
 
 // Exercise: can you make a transform method for the join of the hourly temperature and hourly electricty data ? can you test it afterwards ?

@@ -10,14 +10,11 @@
 
 // COMMAND ----------
 
-spark.conf.set("spark.sql.autoBroadcastJoinThreshold", -1)
-
 import org.apache.spark.sql.functions._
 
 val elecDf = spark.table("electricity_processed")
 
 val tempDf = spark.table("temperature_processed")
-
 
 // // or use these...
 // val elecDf = spark.table("electricity_raw")
@@ -33,14 +30,6 @@ val tempDf = spark.table("temperature_processed")
 //    .withColumn("hour", hour('datetime) as "hour")
 //    .groupBy('user, 'date, 'hour)
 //    .agg(avg("inside").as("average_temperature"))
-
-// COMMAND ----------
-
-display(elecDf)
-
-// COMMAND ----------
-
-display(tempDf)
 
 // COMMAND ----------
 
@@ -86,6 +75,7 @@ val nameDf = Seq(
 
 // COMMAND ----------
 
-// Exercise, make an example with all join types using the nameDf
-// It's even easier to see if you first to a distinct call on joinedDf
-// Can you explain the results ?
+// Exercise, can you find out by using joins?
+// How many temperature and electricity datapoints were dropped by the inner join, due to no match on both sides?
+// Can you show the energy data of Alice, Bob and Clarice?
+// How many energy datapoints are there for all users except Alice, Bob and Clarice?

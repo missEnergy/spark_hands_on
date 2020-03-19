@@ -167,7 +167,7 @@ val temp_table_name = "electricity_csv"
 
 csvDF.createOrReplaceTempView(temp_table_name)
 
-//https://stackoverflow.com/questions/44011846/how-does-createorreplacetempview-work-in-spark
+// https://stackoverflow.com/questions/44011846/how-does-createorreplacetempview-work-in-spark
 
 // COMMAND ----------
 

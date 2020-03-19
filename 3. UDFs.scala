@@ -76,6 +76,8 @@ def mapDayOfWeek = udf { day:String =>
 
 // COMMAND ----------
 
+// make this cell run!
+
 display(df
   .withColumn("date", to_date('utc_datetime).cast("String") as "date")
   .withColumn("weekday", mapDayOfWeek(date_format('date, "E")))
@@ -127,7 +129,39 @@ display(df
 // COMMAND ----------
 
 // MAGIC %md
-// MAGIC # UDAF
+// MAGIC ##Pandas UDF
+
+// COMMAND ----------
+
+// MAGIC %python 
+// MAGIC from pyspark.sql.functions import pandas_udf, PandasUDFType
+// MAGIC from pyspark.sql.types import LongType
+// MAGIC import random
+// MAGIC 
+// MAGIC @pandas_udf('double', PandasUDFType.SCALAR)
+// MAGIC def random_model(x):
+// MAGIC   # imagine you load a python sklearn model here, that you don't want to convert to Scala
+// MAGIC   return x + random.random()
+// MAGIC 
+// MAGIC spark.udf.register('random_model', random_model)
+
+// COMMAND ----------
+
+display(df.withColumn("random", callUDF("random_model", 'electricity)))
+
+// COMMAND ----------
+
+// MAGIC %md
+// MAGIC 
+// MAGIC ##And now you!
+// MAGIC 
+// MAGIC * Can you make a UDF that for a temperature input returns if is "COLD", "COMFORTABLE" or "HOT" ?
+// MAGIC * Given the minimum and maximum temperature occurring in the data, can you make a udf that scales it to a number from 0 one, such that 0 represents the lowest temperature and 1 the highest temperature ?
+
+// COMMAND ----------
+
+// MAGIC %md
+// MAGIC ## UDAF
 // MAGIC Bonus look up question:
 // MAGIC User defined aggregate functions. what is the difference with UDFs ?
 

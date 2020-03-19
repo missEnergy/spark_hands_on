@@ -1,12 +1,29 @@
 // Databricks notebook source
 // MAGIC %md
-// MAGIC ## How to partition your data for fast querying.
+// MAGIC ## Partition pruning: How to partition your data for fast querying.
+// MAGIC 
+// MAGIC If you're data is partitioned on the key that you want to filter on later, you can speed up queries a lot!
 
 // COMMAND ----------
 
-spark.table("electricity_processed").rdd.getNumPartitions
+// If you don't have electricity_processed run this cell
+import org.apache.spark.sql.functions._
+
+spark.table("electricity_raw")
+  .withColumnRenamed("utc_datetime", "datetime")
+  .withColumn("date", to_date('datetime).cast("String") as "date")
+  .withColumn("hour", hour('datetime) as "hour")
+  .groupBy('user, 'date, 'hour)
+  .agg(avg("electricity").as("average_electricity"))
+  .write
+  .format("parquet")
+  .mode(SaveMode.Overwrite)
+  .saveAsTable("electricity_processed")
 
 // COMMAND ----------
+
+// Our table is not yet partitioned by any key
+// let's partition it
 
 spark.table("electricity_processed")
   .write
@@ -17,15 +34,19 @@ spark.table("electricity_processed")
 
 // COMMAND ----------
 
-spark.table("electricity_processed_partioned_by_user").rdd.getNumPartitions
-
-// COMMAND ----------
+// and compare performance
 
 display(spark.table("electricity_processed").filter('user === "014dd64db3"))
 
 // COMMAND ----------
 
 display(spark.table("electricity_processed_partioned_by_user").filter('user === "014dd64db3"))
+
+// COMMAND ----------
+
+// and what can we see under the hood? how is the data stored?
+
+spark.table("electricity_processed_partioned_by_user").rdd.getNumPartitions
 
 // COMMAND ----------
 
@@ -49,12 +70,13 @@ spark.table("electricity_processed").repartition('user)
   .partitionBy("user")
   .saveAsTable("electricity_processed_partioned_by_user2")
 
-//check https://stackoverflow.com/questions/40416357/spark-sql-difference-between-df-repartition-and-dataframewriter-partitionby
-//so how many files were in 1 partition first ? why is there 1 now ?
-
 // COMMAND ----------
 
 display(spark.table("electricity_processed_partioned_by_user2").filter('user === "014dd64db3"))
+
+// COMMAND ----------
+
+// MAGIC %fs ls /user/hive/warehouse/electricity_processed_partioned_by_user2/
 
 // COMMAND ----------
 
@@ -62,16 +84,12 @@ display(spark.table("electricity_processed_partioned_by_user2").filter('user ===
 
 // COMMAND ----------
 
-// MAGIC %md
-// MAGIC ##Preparing data for work
-// MAGIC So that's it for fast quering.
-// MAGIC Next, if we will be working on any given dataset for a while, there are a handful of "necessary" steps to get us ready...
-// MAGIC 
-// MAGIC **Steps**
-// MAGIC 0. Read the data in
-// MAGIC 0. Balance the number of partitions to the number of slots
-// MAGIC 0. Cache the data
-// MAGIC 0. Adjust the `spark.sql.shuffle.partitions`
+spark.table("electricity_processed_partioned_by_user2").rdd.getNumPartitions
+
+// COMMAND ----------
+
+// check https://stackoverflow.com/questions/40416357/spark-sql-difference-between-df-repartition-and-dataframewriter-partitionby
+// so how many files were in a partition folder first ? why is there 1 now ?
 
 // COMMAND ----------
 
@@ -106,49 +124,25 @@ sc.defaultParallelism
 // MAGIC 
 // MAGIC * The second 1/2 of this question is how many partitions of data do I have? And why that many?
 // MAGIC 
-// MAGIC If our goal is to process all our data (say 2M records) in parallel, we need to divide that data up.
+// MAGIC If our goal is to process all our data in parallel, we need to divide that data up.
 // MAGIC 
-// MAGIC If I have 8 **slots** for parallel execution, it would stand to reason that I want 2M / 8 or 250,000 records per partition.
+// MAGIC If I have X **slots** for parallel execution, it would stand to reason that I want the data records evenly in X
 
 // COMMAND ----------
 
 // MAGIC %md
 // MAGIC 
-// MAGIC * As we saw at the beginning when reading in `electricity_processed` is **NOT** coincidental that we have **8 slots** and **8 partitions**
+// MAGIC * It is **NOT** coincidental that we have **2 slots** and **2 partitions**
 // MAGIC * In Spark 2.0 a lot of optimizations have been added to the readers.
 // MAGIC * Namely the readers looks at **the number of slots**, the **size of the data**, and makes a best guess at how many partitions **should be created**.
-// MAGIC * You can actually double the size of the data several times over and Spark will still read in **only 8 partitions**.
-// MAGIC * Eventually it will get so big that Spark will forgo optimization and read it in as 10 partitions, in that case.
-// MAGIC 
-// MAGIC But 8 partitions and 8 slots is just too easy.
-// MAGIC   * Let's read in another copy of this same data.
-// MAGIC   * A parquet file that was saved in 5 partitions.
-// MAGIC   * This gives us an excuse to reason about the **relationship between slots and partitions**
-
-// COMMAND ----------
-
-spark.table("electricity_raw").repartition(5)
-  .write
-  .format("parquet")
-  .mode(SaveMode.Overwrite)
-  .saveAsTable("electricity_raw_5_partitions")
-
-// COMMAND ----------
-
-val alternateDF = spark.table("electricity_raw_5_partitions")
-
-printf("Partitions: %d%n%n", alternateDF.rdd.getNumPartitions)
+// MAGIC * You can actually double the size of the data several times over and Spark will still read in **only 2 partitions**.
 
 // COMMAND ----------
 
 // MAGIC %md
-// MAGIC Now that we have only 5 partitions we have to ask...
+// MAGIC In CE unfortunately no tunable, but what if we had 8 slots of parallelism. And suppose we had a dataframe with only 5 partitions.
 // MAGIC 
 // MAGIC What is going to happen when I perform and action like `count()` **with 8 slots and only 5 partitions?**
-
-// COMMAND ----------
-
-alternateDF.count()
 
 // COMMAND ----------
 
@@ -198,15 +192,19 @@ alternateDF.count()
 
 // COMMAND ----------
 
-val repartitionedDF = alternateDF.repartition(8)
+val repartitionedDF = spark.table("electricity_processed_partioned_by_user2").repartition(8)
+
+printf("Partitions: %d%n%n", repartitionedDF.rdd.getNumPartitions)
+
+// COMMAND ----------
+
+val repartitionedDF = spark.table("electricity_processed_partioned_by_user2").repartition(8).coalesce(5)
 
 printf("Partitions: %d%n%n", repartitionedDF.rdd.getNumPartitions)
 
 // COMMAND ----------
 
 // MAGIC %md-sandbox
-// MAGIC We just balanced the number of partitions to the number of slots.
-// MAGIC 
 // MAGIC Depending on the size of the data and the number of partitions, the shuffle operation can be fairly expensive (though necessary).
 // MAGIC 
 // MAGIC Let's cache the result of the `repartition(n)` call..
@@ -215,6 +213,8 @@ printf("Partitions: %d%n%n", repartitionedDF.rdd.getNumPartitions)
 // MAGIC * Or you could just execute a count to force materialization of the cache.
 
 // COMMAND ----------
+
+val repartitionedDF = spark.table("electricity_processed_partioned_by_user2").repartition(8)
 
 repartitionedDF.cache()
 
@@ -231,71 +231,18 @@ repartitionedDF.cache()
 // COMMAND ----------
 
 repartitionedDF
-  .orderBy('electricity) // sort the data
+  .orderBy('average_electricity) // sort the data
   .foreach(x => ())      // litterally does nothing except trigger a job
 
 // COMMAND ----------
 
 // MAGIC %md
-// MAGIC ### Quick Detour
-// MAGIC Something isn't right here...
-// MAGIC * We only executed one action.
-// MAGIC * But two jobs were triggered.
-// MAGIC * If we look at the physical plan we can see the reason for the extra job.
-// MAGIC * The answer lies in the step **Exchange rangepartitioning**
-
-// COMMAND ----------
-
-// Look at the explain with all records.
-repartitionedDF
-  .orderBy('electricity)
-  .explain()
-
-println("-"*80)
-
-// Look at the explain with only 1M records.
-repartitionedDF
-  .orderBy('electricity)
-  .limit(1000)
-  .explain()
-
-println("-"*80)
-
-// COMMAND ----------
-
-repartitionedDF
-  .orderBy('electricity) // sort the data
-  .limit(1000)           
-  .foreach(x => ())               // litterally does nothing except trigger a job
-
-// COMMAND ----------
-
-// MAGIC %md
-// MAGIC Only 1 job.
-// MAGIC 
-// MAGIC Spark's Catalyst Optimizer is optimizing our jobs for us!
-// MAGIC 
-// MAGIC When you are using the high-level dataframe/dataset APIs, you leave it up to Spark to determine the execution plan, including the job/stage chunking. These depend on many factors such as execution parallelism, cached/persisted data structures, etc. You may see more jobs per query as, for example, some data sources are sampled to parameterize cost-based execution optimization.
-
-// COMMAND ----------
-
-// MAGIC %md
-// MAGIC ### The Real Problem
+// MAGIC ### The Problem
 // MAGIC 
 // MAGIC Back to the original issue...
-// MAGIC * Rerun the original job (below).
 // MAGIC * Take a look at the second job.
 // MAGIC * Look at the 3rd Stage.
 // MAGIC * Notice that it has 200 partitions!
-// MAGIC * And this is our problem.
-
-// COMMAND ----------
-
-
-val funkyDF = repartitionedDF
-  .orderBy('electricity) // sorts the data
-
-funkyDF.foreach(x => ())          // litterally does nothing except trigger a job
 
 // COMMAND ----------
 
@@ -306,6 +253,8 @@ funkyDF.foreach(x => ())          // litterally does nothing except trigger a jo
 
 // COMMAND ----------
 
+val funkyDF = repartitionedDF
+  .orderBy('average_electricity) // sort the data
 
 printf("Partitions: %,d%n", funkyDF.rdd.getNumPartitions)
 
@@ -326,7 +275,6 @@ printf("Partitions: %,d%n", funkyDF.rdd.getNumPartitions)
 
 // COMMAND ----------
 
-
 spark.conf.get("spark.sql.shuffle.partitions")
 
 // COMMAND ----------
@@ -335,7 +283,6 @@ spark.conf.get("spark.sql.shuffle.partitions")
 // MAGIC We can change the config setting with the following command
 
 // COMMAND ----------
-
 
 spark.conf.set("spark.sql.shuffle.partitions", "8")
 
@@ -346,13 +293,95 @@ spark.conf.set("spark.sql.shuffle.partitions", "8")
 
 // COMMAND ----------
 
-
 val betterDF = repartitionedDF
-  .orderBy('electricity) // sort the data
+  .orderBy('average_electricity) // sort the data
 //
 betterDF.foreach(x => () )        // litterally does nothing except trigger a job
 
 printf("Partitions: %,d%n", betterDF.rdd.getNumPartitions)
+
+// COMMAND ----------
+
+// MAGIC %md 
+// MAGIC ## The Quby incident
+// MAGIC * Sorting (within a partition) matters for the parquet compression!
+// MAGIC * What happens to the file size before and after sorting!
+// MAGIC * This can have a big impact for big data storing
+
+// COMMAND ----------
+
+// MAGIC %fs ls /user/hive/warehouse/electricity_processed/
+
+// COMMAND ----------
+
+spark.table("electricity_processed")
+  .write
+  .format("parquet")
+  .mode(SaveMode.Overwrite)
+  .saveAsTable("electricity_processed_2")
+
+// COMMAND ----------
+
+// MAGIC %fs ls /user/hive/warehouse/electricity_processed_2/
+
+// COMMAND ----------
+
+spark.table("electricity_processed")
+  .sort('user)
+  .write
+  .format("parquet")
+  .mode(SaveMode.Overwrite)
+  .saveAsTable("electricity_processed_sorted")
+
+// COMMAND ----------
+
+// MAGIC %fs ls /user/hive/warehouse/electricity_processed_sorted/
+
+// COMMAND ----------
+
+// MAGIC %md 
+// MAGIC ## Predicate push down
+// MAGIC Predicate push down is another feature of Spark and Parquet that can improve query performance by reducing the amount of data read from Parquet files. Predicate push down works by evaluating filtering predicates in the query against metadata stored in the Parquet files. Parquet can optionally store statistics (in particular the minimum and maximum value for a column chunk) in the relevant metadata section of its files and can use that information to take decisions, for example, to skip reading chunks of data if the provided filter predicate value in the query is outside the range of values stored for a given column. This is a simplified explanation, there are many more details and exceptions that it does not catch, but it should give you a gist of what is happening under the hood. You will find more details later in this section and further in this post in the paragraph discussing Parquet internals.
+
+// COMMAND ----------
+
+spark.table("electricity_processed")
+  .sort('average_electricity)
+  .write
+  .format("parquet")
+  .mode(SaveMode.Overwrite)
+  .saveAsTable("electricity_processed_sorted_by_elec")
+
+// COMMAND ----------
+
+// MAGIC %fs ls /user/hive/warehouse/electricity_processed_sorted_by_elec/
+
+// COMMAND ----------
+
+display(spark.read.parquet("/user/hive/warehouse/electricity_processed_sorted_by_elec/part-00006-tid-5924591950017092414-412aa338-e0f2-47d6-80b6-47d45a250a68-1572-1-c000.snappy.parquet").agg(max('average_electricity)))
+
+// COMMAND ----------
+
+spark.table("electricity_processed_2").count
+
+// COMMAND ----------
+
+spark.table("electricity_processed_sorted_by_elec").count
+
+// COMMAND ----------
+
+spark.table("electricity_processed_2").filter('average_electricity > 4300).count
+
+// COMMAND ----------
+
+spark.table("electricity_processed_sorted_by_elec").filter('average_electricity > 4300).count
+
+// COMMAND ----------
+
+// MAGIC %md
+// MAGIC The run time is not very deterministic, run a couple of times to see the general picture...
+// MAGIC The difference is small but you get the idea
+// MAGIC https://blog.usejournal.com/sorting-and-parquet-3a382893cde5
 
 // COMMAND ----------
 

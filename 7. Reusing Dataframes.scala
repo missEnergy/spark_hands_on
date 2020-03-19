@@ -330,6 +330,33 @@ val tempDf =  spark.table("temperature_processed")
 
 // COMMAND ----------
 
+// If you don't have electricity_processed or temperature_processed run this cell
+import org.apache.spark.sql.functions._
+
+spark.table("electricity_raw")
+  .withColumnRenamed("utc_datetime", "datetime")
+  .withColumn("date", to_date('datetime).cast("String") as "date")
+  .withColumn("hour", hour('datetime) as "hour")
+  .groupBy('user, 'date, 'hour)
+  .agg(avg("electricity").as("average_electricity"))
+  .write
+  .format("parquet")
+  .mode(SaveMode.Overwrite)
+  .saveAsTable("electricity_processed")
+
+spark.table("temperature_raw")
+    .withColumnRenamed("utc_datetime", "datetime")
+    .withColumn("date", to_date('datetime).cast("String") as "date")
+    .withColumn("hour", hour('datetime) as "hour")
+    .groupBy('user, 'date, 'hour)
+    .agg(avg("inside").as("average_temperature"))
+    .write
+    .format("parquet")
+    .mode(SaveMode.Overwrite)
+    .saveAsTable("temperature_processed")
+
+// COMMAND ----------
+
 val joinedDf = tempDf.join(elecDf, Seq("user", "date", "hour"))
 display(joinedDf)
 
