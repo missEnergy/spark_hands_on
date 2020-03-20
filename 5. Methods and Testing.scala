@@ -99,6 +99,8 @@ val emptyDs = spark.emptyDataset[ElectricityRawSchema]
 
 val actual = transform(emptyDs)
 
+assert(... fill in)
+
 //how can we make this cell (=test) fail when the transform doesn't work?
 
 // COMMAND ----------
@@ -106,20 +108,14 @@ val actual = transform(emptyDs)
 // Now, we make a test with some dummy data (finish!)
 
 val dummyDs = Seq(
-  ElectricityRawSchema(electricity=5.0, utc_datetime="2019-01-01 12:00:00", user="John"),
-  ...
-)
+  ElectricityRawSchema(electricity=5.0, utc_datetime="2019-01-01 12:00:00", user="John")
+) // hint: convert this to a Spark Dataset!
 
 val expected = val expected = Seq(
-  ElectricityProcessedSchema(...),
-  ....
+  ElectricityProcessedSchema(...) // fill in
 )
 
-val actual = transform(dummyDs).collect()
+val actual = transform(dummyDs) // hint: convert back to a Seq, so you can assert in the next line!
 
-assert(actual === expected)
+assert(actual == expected)
 ...
-
-// COMMAND ----------
-
-// Exercise: can you make a transform method for the join of the hourly temperature and hourly electricty data ? can you test it afterwards ?
