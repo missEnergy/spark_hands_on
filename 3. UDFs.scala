@@ -115,20 +115,6 @@ display(df
 // COMMAND ----------
 
 // MAGIC %md
-// MAGIC 
-// MAGIC ##And now you!
-// MAGIC 
-// MAGIC Can you make a UDF that for a temperature input returns if is "COLD", "COMFORTABLE" or "HOT" ?
-// MAGIC Given the minimum and maximum temperature occurring in the data, can you make a udf that scales it to a number from 0 one,
-// MAGIC such that 0 represents the lowest temperature and 1 the highest temperature ?
-
-// COMMAND ----------
-
-.... answer here
-
-// COMMAND ----------
-
-// MAGIC %md
 // MAGIC ##Pandas UDF
 
 // COMMAND ----------

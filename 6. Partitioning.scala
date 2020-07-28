@@ -131,16 +131,7 @@ sc.defaultParallelism
 // COMMAND ----------
 
 // MAGIC %md
-// MAGIC 
-// MAGIC * It is **NOT** coincidental that we have **2 slots** and **2 partitions**
-// MAGIC * In Spark 2.0 a lot of optimizations have been added to the readers.
-// MAGIC * Namely the readers looks at **the number of slots**, the **size of the data**, and makes a best guess at how many partitions **should be created**.
-// MAGIC * You can actually double the size of the data several times over and Spark will still read in **only 2 partitions**.
-
-// COMMAND ----------
-
-// MAGIC %md
-// MAGIC In CE unfortunately no tunable, but what if we had 8 slots of parallelism. And suppose we had a dataframe with only 5 partitions.
+// MAGIC What if we had 8 slots of parallelism. And suppose we had a dataframe with only 5 partitions.
 // MAGIC 
 // MAGIC What is going to happen when I perform and action like `count()` **with 8 slots and only 5 partitions?**
 
