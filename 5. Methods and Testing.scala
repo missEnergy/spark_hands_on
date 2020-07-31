@@ -95,6 +95,7 @@ run()
 // COMMAND ----------
 
 // test it transforms with an empty dataset
+// finish the test to assert the actual is empty
 val emptyDs = spark.emptyDataset[ElectricityRawSchema]
 
 val actual = transform(emptyDs)
