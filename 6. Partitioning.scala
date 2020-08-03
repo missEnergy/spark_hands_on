@@ -348,12 +348,12 @@ spark.table("electricity_processed")
 // MAGIC %fs ls /user/hive/warehouse/electricity_processed_sorted_by_elec/
 
 // COMMAND ----------
-
+// replace by parquet file in your dir
 display(spark.read.parquet("/user/hive/warehouse/electricity_processed_sorted_by_elec/part-00006-tid-5924591950017092414-412aa338-e0f2-47d6-80b6-47d45a250a68-1572-1-c000.snappy.parquet").agg(max('average_electricity)))
 
 // COMMAND ----------
 
-spark.table("electricity_processed_2").count
+spark.table("electricity_processed").count
 
 // COMMAND ----------
 
@@ -361,7 +361,7 @@ spark.table("electricity_processed_sorted_by_elec").count
 
 // COMMAND ----------
 
-spark.table("electricity_processed_2").filter('average_electricity > 4300).count
+spark.table("electricity_processed").filter('average_electricity > 4300).count
 
 // COMMAND ----------
 
