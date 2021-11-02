@@ -44,7 +44,21 @@ display(spark.table("electricity_processed_partioned_by_user").filter('user === 
 
 // COMMAND ----------
 
-// and what can we see under the hood? how is the data stored?
+// MAGIC %md
+// MAGIC ### Slots/Cores
+// MAGIC 
+// MAGIC ** *Note:* ** *The Spark API uses the term **core** meaning a thread available for parallel execution.*<br/>*Here we refer to it as **slot** to avoid confusion with the number of cores in the underlying CPU(s)*<br/>*to which there isn't necessarily an equal number.*
+// MAGIC 
+// MAGIC To check programatically how many slots for paralelleism you have, you can use `SparkContext.defaultParallelism`
+
+// COMMAND ----------
+
+// # of cores/slots
+sc.defaultParallelism
+
+// COMMAND ----------
+
+// and what can we see under the hood? how is the data loaded and stored?
 
 spark.table("electricity_processed_partioned_by_user").rdd.getNumPartitions
 
@@ -62,60 +76,18 @@ spark.table("electricity_processed_partioned_by_user").rdd.getNumPartitions
 
 // COMMAND ----------
 
-// Question: Why do we need repartition AND partitionBy?
+// Fun fact: for spark 2.x, without AQE, you needed a repartition AND partitionBy.
+// Otherwise it would create 8 files per user
+// But now Spark is smart enough to create 1 file per user
+
+// check https://stackoverflow.com/questions/40416357/spark-sql-difference-between-df-repartition-and-dataframewriter-partitionby
+// so how many files were in a partition folder first ? why is there 1 now ?
 spark.table("electricity_processed").repartition('user)
   .write
   .format("parquet")
   .mode(SaveMode.Overwrite)
   .partitionBy("user")
   .saveAsTable("electricity_processed_partioned_by_user2")
-
-// COMMAND ----------
-
-display(spark.table("electricity_processed_partioned_by_user2").filter('user === "014dd64db3"))
-
-// COMMAND ----------
-
-// MAGIC %fs ls /user/hive/warehouse/electricity_processed_partioned_by_user2/
-
-// COMMAND ----------
-
-// MAGIC %fs ls /user/hive/warehouse/electricity_processed_partioned_by_user2/user=014dd64db3/
-
-// COMMAND ----------
-
-spark.table("electricity_processed_partioned_by_user2").rdd.getNumPartitions
-
-// COMMAND ----------
-
-// check https://stackoverflow.com/questions/40416357/spark-sql-difference-between-df-repartition-and-dataframewriter-partitionby
-// so how many files were in a partition folder first ? why is there 1 now ?
-
-// COMMAND ----------
-
-// MAGIC %md
-// MAGIC ##Partitions vs Slots
-// MAGIC 
-// MAGIC * For **Step #2** we have to ask the question, what is the relationship between partitions and slots.
-// MAGIC 
-// MAGIC 
-// MAGIC ** *Note:* ** *The Spark API uses the term **core** meaning a thread available for parallel execution.*<br/>*Here we refer to it as **slot** to avoid confusion with the number of cores in the underlying CPU(s)*<br/>*to which there isn't necessarily an equal number.*
-
-// COMMAND ----------
-
-// MAGIC %md
-// MAGIC ### Slots/Cores
-// MAGIC 
-// MAGIC In most cases, if you created your cluster, you should know how many cores you have.
-// MAGIC 
-// MAGIC However, to check programatically, you can use `SparkContext.defaultParallelism`
-// MAGIC 
-// MAGIC For more information, see the doc <a href="https://spark.apache.org/docs/latest/configuration.html#execution-behavior" target="_blank">Spark Configuration, Execution Behavior</a>
-
-// COMMAND ----------
-
-// # of cores/slots
-sc.defaultParallelism
 
 // COMMAND ----------
 
@@ -183,13 +155,13 @@ sc.defaultParallelism
 
 // COMMAND ----------
 
-val repartitionedDF = spark.table("electricity_processed_partioned_by_user2").repartition(8)
+val repartitionedDF = spark.table("electricity_processed_partioned_by_user").repartition(8)
 
 printf("Partitions: %d%n%n", repartitionedDF.rdd.getNumPartitions)
 
 // COMMAND ----------
 
-val repartitionedDF = spark.table("electricity_processed_partioned_by_user2").repartition(8).coalesce(5)
+val repartitionedDF = spark.table("electricity_processed_partioned_by_user").repartition(8).coalesce(5)
 
 printf("Partitions: %d%n%n", repartitionedDF.rdd.getNumPartitions)
 
@@ -197,57 +169,6 @@ printf("Partitions: %d%n%n", repartitionedDF.rdd.getNumPartitions)
 
 // MAGIC %md-sandbox
 // MAGIC Depending on the size of the data and the number of partitions, the shuffle operation can be fairly expensive (though necessary).
-// MAGIC 
-// MAGIC Let's cache the result of the `repartition(n)` call..
-// MAGIC * Or more specifically, let's mark it for caching.
-// MAGIC * The actual cache will occur later once an action is performed
-// MAGIC * Or you could just execute a count to force materialization of the cache.
-
-// COMMAND ----------
-
-val repartitionedDF = spark.table("electricity_processed_partioned_by_user2").repartition(8)
-
-repartitionedDF.cache()
-
-// COMMAND ----------
-
-// MAGIC %md-sandbox
-// MAGIC The next problem has to do with a side effect of certain **wide** transformations.
-// MAGIC 
-// MAGIC So far, we haven't hit any **wide** transformations other than `repartition(n)`
-// MAGIC * But eventually we will...
-// MAGIC * Let's illustrate the problem that we will **eventually** hit
-// MAGIC * We can do this by simply sorting our data.
-
-// COMMAND ----------
-
-repartitionedDF
-  .orderBy('average_electricity) // sort the data
-  .foreach(x => ())      // litterally does nothing except trigger a job
-
-// COMMAND ----------
-
-// MAGIC %md
-// MAGIC ### The Problem
-// MAGIC 
-// MAGIC Back to the original issue...
-// MAGIC * Take a look at the second job.
-// MAGIC * Look at the 3rd Stage.
-// MAGIC * Notice that it has 200 partitions!
-
-// COMMAND ----------
-
-// MAGIC %md
-// MAGIC The problem is the number of partitions we ended up with.
-// MAGIC 
-// MAGIC Besides looking at the number of tasks in the final stage, we can simply print out the number of partitions
-
-// COMMAND ----------
-
-val funkyDF = repartitionedDF
-  .orderBy('average_electricity) // sort the data
-
-printf("Partitions: %,d%n", funkyDF.rdd.getNumPartitions)
 
 // COMMAND ----------
 
@@ -262,7 +183,9 @@ printf("Partitions: %,d%n", funkyDF.rdd.getNumPartitions)
 // MAGIC 
 // MAGIC For now, we can tweak it with the configuration value `spark.sql.shuffle.partitions`
 // MAGIC 
-// MAGIC We can see below that it is actually configured for 200 partitions
+// MAGIC We can see below that it is actually configured for 200 partitions.
+// MAGIC 
+// MAGIC The nice thing about spark 3.x though, is that it will check if less partitions are okay as well.
 
 // COMMAND ----------
 
@@ -281,15 +204,6 @@ spark.conf.set("spark.sql.shuffle.partitions", "8")
 
 // MAGIC %md
 // MAGIC Now, if we re-run our query, we will see that we end up with the 8 partitions we want post-shuffle.
-
-// COMMAND ----------
-
-val betterDF = repartitionedDF
-  .orderBy('average_electricity) // sort the data
-//
-betterDF.foreach(x => () )        // litterally does nothing except trigger a job
-
-printf("Partitions: %,d%n", betterDF.rdd.getNumPartitions)
 
 // COMMAND ----------
 
@@ -348,6 +262,7 @@ spark.table("electricity_processed")
 // MAGIC %fs ls /user/hive/warehouse/electricity_processed_sorted_by_elec/
 
 // COMMAND ----------
+
 // replace by parquet file in your dir
 display(spark.read.parquet("/user/hive/warehouse/electricity_processed_sorted_by_elec/part-00006-tid-5924591950017092414-412aa338-e0f2-47d6-80b6-47d45a250a68-1572-1-c000.snappy.parquet").agg(max('average_electricity)))
 
