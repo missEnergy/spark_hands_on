@@ -434,8 +434,8 @@ display(
 
 // Exercise: org.apache.spark.sql.functions._
 // There are so many predefined functions available, it's super helpful!
-// Scala docs: https://spark.apache.org/docs/2.3.0/api/scala/index.html#org.apache.spark.sql.functions$
-// More readable: https://spark.apache.org/docs/2.3.0/api/sql/index.html
+// Scala docs: https://spark.apache.org/docs/latest/api/scala/org/apache/spark/sql/functions$.html
+// More readable: https://spark.apache.org/docs/latest/api/sql/index.html
 // Try it out!
 // Can you convert the utc_datetime in dd/mm/yyyy format?
 // Can you convert the utc_datetime to integer timestamp format?

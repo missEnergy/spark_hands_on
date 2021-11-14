@@ -128,8 +128,6 @@ spark.read                    // The DataFrameReader
 // MAGIC 
 // MAGIC **Question:** Why were there no jobs?
 // MAGIC 
-// MAGIC **Question:** What is different about the data types of these columns compared to the previous exercise & why?
-// MAGIC 
 // MAGIC **Question:** Do I need to indicate that the file has a header?
 // MAGIC 
 // MAGIC **Question:** Do the declared column names need to match the columns in the header of the csv file?
