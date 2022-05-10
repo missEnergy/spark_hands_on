@@ -12,3 +12,6 @@ We first need to import these notebooks and upload the 2 csv data files in order
 3. Now, go to `Workspace` and click the arrow button in top of the menu. Click on `Import` and upload the 8 scala files in this repository. (unfortunately 1 by 1, no bulk option)
 
 Your setup is ready!
+
+## Recommended Databricks CE cluster
+The notebooks have been tested on a 9.1 LTS cluster
