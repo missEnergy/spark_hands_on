@@ -247,46 +247,6 @@ spark.table("electricity_processed")
 // MAGIC %md 
 // MAGIC ## Predicate push down
 // MAGIC Predicate push down is another feature of Spark and Parquet that can improve query performance by reducing the amount of data read from Parquet files. Predicate push down works by evaluating filtering predicates in the query against metadata stored in the Parquet files. Parquet can optionally store statistics (in particular the minimum and maximum value for a column chunk) in the relevant metadata section of its files and can use that information to take decisions, for example, to skip reading chunks of data if the provided filter predicate value in the query is outside the range of values stored for a given column. This is a simplified explanation, there are many more details and exceptions that it does not catch, but it should give you a gist of what is happening under the hood. You will find more details later in this section and further in this post in the paragraph discussing Parquet internals.
-
-// COMMAND ----------
-
-spark.table("electricity_processed")
-  .sort('average_electricity)
-  .write
-  .format("parquet")
-  .mode(SaveMode.Overwrite)
-  .saveAsTable("electricity_processed_sorted_by_elec")
-
-// COMMAND ----------
-
-// MAGIC %fs ls /user/hive/warehouse/electricity_processed_sorted_by_elec/
-
-// COMMAND ----------
-
-// replace by parquet file in your dir
-display(spark.read.parquet("/user/hive/warehouse/electricity_processed_sorted_by_elec/part-00006-tid-5924591950017092414-412aa338-e0f2-47d6-80b6-47d45a250a68-1572-1-c000.snappy.parquet").agg(max('average_electricity)))
-
-// COMMAND ----------
-
-spark.table("electricity_processed").count
-
-// COMMAND ----------
-
-spark.table("electricity_processed_sorted_by_elec").count
-
-// COMMAND ----------
-
-spark.table("electricity_processed").filter('average_electricity > 4300).count
-
-// COMMAND ----------
-
-spark.table("electricity_processed_sorted_by_elec").filter('average_electricity > 4300).count
-
-// COMMAND ----------
-
-// MAGIC %md
-// MAGIC The run time is not very deterministic, run a couple of times to see the general picture...
-// MAGIC The difference is small but you get the idea
 // MAGIC https://blog.usejournal.com/sorting-and-parquet-3a382893cde5
 
 // COMMAND ----------
