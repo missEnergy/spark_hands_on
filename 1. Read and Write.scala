@@ -82,7 +82,6 @@ spark.read                        // The DataFrameReader
 // MAGIC * we still have three columns
 // MAGIC * all three columns have their proper names
 // MAGIC * two jobs were executed (not one as in the previous example)
-// MAGIC * our three columns now have distinct data types
 // MAGIC 
 // MAGIC **Question:** Why were there two jobs?
 // MAGIC 
