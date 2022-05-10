@@ -123,7 +123,6 @@ spark.read                    // The DataFrameReader
 // MAGIC * We still have three columns
 // MAGIC * All three columns have their proper names
 // MAGIC * Zero jobs were executed
-// MAGIC * Our three columns now have distinct data types
 // MAGIC 
 // MAGIC **Question:** Why were there no jobs?
 // MAGIC 
